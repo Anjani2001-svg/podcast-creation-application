@@ -54,7 +54,7 @@ st.markdown("""
         font-weight: 500;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: #FFFFFF;
+        color: #00939a;
         margin: 1.2rem 0 0.5rem;
         padding-bottom: 0.4rem;
         border-bottom: 1px solid rgba(0,147,154,0.25);
