@@ -54,7 +54,7 @@ st.markdown("""
         font-weight: 500;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: #00939a;
+        color: #FFFFFF;
         margin: 1.2rem 0 0.5rem;
         padding-bottom: 0.4rem;
         border-bottom: 1px solid rgba(0,147,154,0.25);
@@ -62,7 +62,7 @@ st.markdown("""
 
     /* Inputs */
     .stTextInput > div > div > input {
-        background: #FFFFFF !important;
+        background:  #000000 !important;
         border: 1px solid rgba(0,147,154,0.25) !important;
         color: #fff !important;
         border-radius: 8px !important;
