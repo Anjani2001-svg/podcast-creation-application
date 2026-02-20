@@ -44,7 +44,7 @@ st.markdown("""
         margin-bottom: 0.3rem;
     }
     .app-header p {
-        color: #7bb8bc;
+        color: #FFFFFF;
         font-size: 0.9rem;
     }
 
@@ -55,7 +55,7 @@ st.markdown("""
         font-weight: 500;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        color: #00939a;
+        color: #FFFFFF;
         margin: 1.2rem 0 0.5rem;
         padding-bottom: 0.4rem;
         border-bottom: 1px solid rgba(0,147,154,0.25);
@@ -150,27 +150,27 @@ st.markdown('<div class="sec-label">Media Files</div>', unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
     template_file = st.file_uploader(
-        "🖼️ Thumbnail Template",
+        "Thumbnail Template",
         type=["jpg", "jpeg", "png"],
         help="JPG or PNG — no text baked in",
     )
 with col2:
     audio_file = st.file_uploader(
-        "🎙️ Audio File",
+        "Notebooklm Audio File",
         type=["mp3", "wav", "m4a", "aac", "ogg"],
         help="MP3 · WAV · M4A · AAC",
     )
 
 # ── Episode details ──
-st.markdown('<div class="sec-label">Episode Details</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-label">Course and Unit Details</div>', unsafe_allow_html=True)
 
 course = st.text_input(
     "Course Name",
     placeholder="Level 7 Extended Diploma in Computing Technologies (Networking) - RQF",
 )
 unit_name = st.text_input(
-    "Unit Name",
-    placeholder="Managing Innovation and Change in Computing",
+    "Unit Number and Unit Name",
+    placeholder="Unit 01 - Managing Innovation and Change in Computing",
 )
 
 # ── Create button ──
@@ -219,7 +219,7 @@ if create_btn:
                 # ── Show results ──
                 st.markdown("""
                 <div class="success-box">
-                    <div class="success-title">✅ Your video is ready!</div>
+                    <div class="success-title">Your video is ready!</div>
                 </div>
                 """, unsafe_allow_html=True)
 
