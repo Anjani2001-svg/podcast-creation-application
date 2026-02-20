@@ -63,7 +63,7 @@ st.markdown("""
 
     /* Inputs */
     .stTextInput > div > div > input {
-        background: #0e3338 !important;
+        background: #FFFFFF !important;
         border: 1px solid rgba(0,147,154,0.25) !important;
         color: #fff !important;
         border-radius: 8px !important;
@@ -139,7 +139,7 @@ st.markdown("""
 # ── Header ──
 st.markdown("""
 <div class="app-header">
-    <h1>🎙️ Podcast Video Creator</h1>
+    <h1>Podcast Video Creator</h1>
     <p>Upload thumbnail + audio → branded MP4</p>
 </div>
 """, unsafe_allow_html=True)
