@@ -15,7 +15,6 @@ from podcast_creator import create_thumbnail, create_video
 # ── Page config ──
 st.set_page_config(
     page_title="Podcast Video Creator",
-    page_icon="🎙️",
     layout="centered",
 )
 
@@ -140,7 +139,6 @@ st.markdown("""
 st.markdown("""
 <div class="app-header">
     <h1>Podcast Video Creator</h1>
-    <p>Upload thumbnail + audio → branded MP4</p>
 </div>
 """, unsafe_allow_html=True)
 
