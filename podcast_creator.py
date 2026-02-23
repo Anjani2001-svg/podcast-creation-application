@@ -727,13 +727,32 @@ def create_thumbnail(
     zone_h    = safe_bottom - safe_top
     inter_gap = max(28, int(H * 0.06))
 
-    # ── Course name: extrabold, FORCED MAX 2 LINES ──
+    # ── Course name: extrabold, PREFER 1 LINE ──
+    # Try 1 line first, shrink font down to min_1line size.
+    # Only allow 2 lines if text can't fit on 1 line at reasonable size.
     max_course_size = int(28 * scale)
-    for eb_size in range(max_course_size, 10, -1):
-        eb_font = load_font("extrabold", eb_size)
-        cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width, max_lines=2)
-        if len(cl) <= 2 and max(cw) <= safe_width and block_height(ch, line_gap=8) <= zone_h * 0.45:
+    min_1line_size  = int(12 * scale)          # below this → allow 2 lines
+
+    # Attempt 1: fit on 1 line
+    eb_size = max_course_size
+    cl, cw, ch = None, None, None
+    found_1line = False
+    for sz in range(max_course_size, min_1line_size - 1, -1):
+        eb_font = load_font("extrabold", sz)
+        cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width, max_lines=1)
+        if len(cl) == 1 and max(cw) <= safe_width and block_height(ch, line_gap=8) <= zone_h * 0.45:
+            eb_size = sz
+            found_1line = True
             break
+
+    if not found_1line:
+        # Attempt 2: couldn't fit on 1 line → allow 2 lines
+        for sz in range(max_course_size, 10, -1):
+            eb_font = load_font("extrabold", sz)
+            cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width, max_lines=2)
+            if len(cl) <= 2 and max(cw) <= safe_width and block_height(ch, line_gap=8) <= zone_h * 0.45:
+                eb_size = sz
+                break
 
     # ── Unit name: medium weight, ~55% of course size ──
     med_size = max(14, int(eb_size * 0.55))
