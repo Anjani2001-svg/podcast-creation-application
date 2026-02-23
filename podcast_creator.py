@@ -612,7 +612,13 @@ def load_font(weight: str, size: int) -> ImageFont.FreeTypeFont:
     for fb in _FALLBACKS.get(weight, []):
         if os.path.exists(fb):
             return ImageFont.truetype(fb, size)
-    return ImageFont.load_default()
+    raise FileNotFoundError(
+        f"Montserrat-{weight} font not found!\n"
+        f"Download from: https://fonts.google.com/specimen/Montserrat\n"
+        f"Then copy Montserrat-ExtraBold.ttf and Montserrat-Medium.ttf\n"
+        f"into a 'fonts' folder next to this script:\n"
+        f"  {Path(__file__).parent / 'fonts' / ''}\n"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -662,7 +668,10 @@ def find_light_circle_zone(img: Image.Image):
 # TEXT LAYOUT HELPERS
 # ─────────────────────────────────────────────────────────────────
 
-def wrap_to_fit(text: str, font, max_px: int):
+def wrap_to_fit(text: str, font, max_px: int, max_lines: int = 0):
+    """Word-wrap text so no line exceeds max_px.
+       If max_lines > 0, never exceed that many lines (shrink font if needed).
+    """
     text = text.strip()
     if not text:
         bb = font.getbbox(" ")
@@ -670,6 +679,8 @@ def wrap_to_fit(text: str, font, max_px: int):
 
     for chars in range(len(text), 3, -1):
         lines = textwrap.wrap(text, width=chars) or [text]
+        if max_lines > 0 and len(lines) > max_lines:
+            continue
         ws, hs = [], []
         for line in lines:
             bb = font.getbbox(line)
@@ -716,12 +727,12 @@ def create_thumbnail(
     zone_h    = safe_bottom - safe_top
     inter_gap = max(28, int(H * 0.06))
 
-    # ── Course name: extrabold, capped size ──
+    # ── Course name: extrabold, FORCED MAX 2 LINES ──
     max_course_size = int(28 * scale)
-    for eb_size in range(max_course_size, 14, -1):
+    for eb_size in range(max_course_size, 10, -1):
         eb_font = load_font("extrabold", eb_size)
-        cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width)
-        if block_height(ch, line_gap=8) <= zone_h * 0.45:
+        cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width, max_lines=2)
+        if len(cl) <= 2 and max(cw) <= safe_width and block_height(ch, line_gap=8) <= zone_h * 0.45:
             break
 
     # ── Unit name: medium weight, ~55% of course size ──
