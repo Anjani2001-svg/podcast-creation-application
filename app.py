@@ -2,10 +2,12 @@
 """
 app.py – Podcast Video Creator (Streamlit)
 Run locally:  streamlit run app.py
+
+Only requires: Audio file + Course Name + Unit Name
+Thumbnail template is generated automatically in code.
 """
 
 import tempfile
-import time
 from pathlib import Path
 
 import streamlit as st
@@ -28,7 +30,6 @@ st.markdown("""
         color: #d4eff1;
     }
 
-    /* Header */
     .app-header {
         text-align: center;
         padding: 1.5rem 0 1rem;
@@ -47,7 +48,6 @@ st.markdown("""
         font-size: 0.9rem;
     }
 
-    /* Section labels */
     .sec-label {
         font-family: 'Space Grotesk', sans-serif;
         font-size: 0.7rem;
@@ -60,7 +60,6 @@ st.markdown("""
         border-bottom: 1px solid rgba(0,147,154,0.25);
     }
 
-    /* Inputs */
     .stTextInput > div > div > input {
         background:  #008080 !important;
         border: 1px solid rgba(0,147,154,0.25) !important;
@@ -72,7 +71,6 @@ st.markdown("""
         box-shadow: 0 0 0 3px rgba(0,147,154,0.15) !important;
     }
 
-    /* File uploader */
     .stFileUploader > div {
         border: 2px dashed rgba(0,147,154,0.25) !important;
         border-radius: 14px !important;
@@ -82,7 +80,6 @@ st.markdown("""
         border-color: #00939a !important;
     }
 
-    /* Button */
     .stButton > button {
         width: 100%;
         padding: 0.8rem;
@@ -99,7 +96,6 @@ st.markdown("""
         opacity: 0.9;
     }
 
-    /* Download button */
     .stDownloadButton > button {
         width: 100%;
         background: #0e3338 !important;
@@ -112,7 +108,6 @@ st.markdown("""
         background: rgba(0,147,154,0.15) !important;
     }
 
-    /* Success box */
     .success-box {
         background: #122a2e;
         border: 1px solid rgba(0,147,154,0.25);
@@ -128,7 +123,6 @@ st.markdown("""
         margin-bottom: 1rem;
     }
 
-    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -139,25 +133,18 @@ st.markdown("""
 st.markdown("""
 <div class="app-header">
     <h1>Podcast Video Creator</h1>
+    <p>Upload audio · Enter course & unit · Get your video</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Media files ──
-st.markdown('<div class="sec-label">Media Files</div>', unsafe_allow_html=True)
+# ── Audio upload ──
+st.markdown('<div class="sec-label">Audio File</div>', unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
-with col1:
-    template_file = st.file_uploader(
-        "Thumbnail Template",
-        type=["jpg", "jpeg", "png"],
-        help="JPG or PNG — no text baked in",
-    )
-with col2:
-    audio_file = st.file_uploader(
-        "Notebooklm Audio File",
-        type=["mp3", "wav", "m4a", "aac", "ogg"],
-        help="MP3 · WAV · M4A · AAC",
-    )
+audio_file = st.file_uploader(
+    "NotebookLM Audio File",
+    type=["mp3", "wav", "m4a", "aac", "ogg"],
+    help="MP3 · WAV · M4A · AAC",
+)
 
 # ── Episode details ──
 st.markdown('<div class="sec-label">Course and Unit Details</div>', unsafe_allow_html=True)
@@ -172,24 +159,18 @@ unit_name = st.text_input(
 )
 
 # ── Create button ──
-st.markdown("")  # spacing
+st.markdown("")
 create_btn = st.button("▶ Create Video", use_container_width=True)
 
 if create_btn:
     # ── Validation ──
     if not course or not unit_name:
         st.error("Please fill in both Course Name and Unit Name.")
-    elif not template_file:
-        st.error("Please upload a thumbnail template.")
     elif not audio_file:
         st.error("Please upload an audio file.")
     else:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
-
-            # Save uploads to temp files
-            tmpl_path = tmpdir / f"template{Path(template_file.name).suffix}"
-            tmpl_path.write_bytes(template_file.getvalue())
 
             audio_path = tmpdir / f"audio{Path(audio_file.name).suffix}"
             audio_path.write_bytes(audio_file.getvalue())
@@ -200,13 +181,12 @@ if create_btn:
             progress_bar = st.progress(0, text="Generating thumbnail…")
 
             try:
-                # Step 1: Thumbnail
-                create_thumbnail(str(tmpl_path), course, unit_name, str(thumb_path))
+                # Step 1: Thumbnail (auto-generated template)
+                create_thumbnail(course, unit_name, str(thumb_path))
                 progress_bar.progress(5, text="Thumbnail created. Rendering video…")
 
                 # Step 2: Video with progress
                 def on_progress(pct: int, msg: str):
-                    # Map ffmpeg 0-100 → our 5-100
                     mapped = 5 + int(pct * 0.95)
                     progress_bar.progress(min(mapped, 100), text=msg)
 
@@ -221,10 +201,8 @@ if create_btn:
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Thumbnail preview
                 st.image(str(thumb_path), caption="Generated Thumbnail", use_container_width=True)
 
-                # Download buttons
                 col_a, col_b = st.columns(2)
                 with col_a:
                     with open(video_path, "rb") as f:
