@@ -736,14 +736,8 @@ def create_thumbnail(
     y += inter_gap
     draw_block_centred(draw, unl, unw, unh, med_font, cx, y, WHITE, line_gap=6)
 
-    # Ensure even dimensions (required by h264/libx264)
-    W, H = img.size
-    new_w = W if W % 2 == 0 else W + 1
-    new_h = H if H % 2 == 0 else H + 1
-    if (new_w, new_h) != (W, H):
-        resized = Image.new("RGB", (new_w, new_h), (0, 0, 0))
-        resized.paste(img, (0, 0))
-        img = resized
+    # Resize to 1920x1080 (Full HD, even dimensions for h264)
+    img = img.resize((1920, 1080), Image.LANCZOS)
 
     img.save(output_path, quality=95)
     return output_path
@@ -794,7 +788,7 @@ def create_video(
         "-i", audio_path,
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-preset", "ultrafast",
-        "-tune", "zerolatency", "-crf", "28", "-r", "15",
+        "-tune", "zerolatency", "-crf", "28", "-r", "30",
         *audio_codec,
         "-pix_fmt", "yuv420p", "-shortest",
         "-movflags", "+faststart",
