@@ -8,11 +8,19 @@ Thumbnail template is generated automatically in code.
 """
 
 import tempfile
+import shutil
 from pathlib import Path
 
 import streamlit as st
 
 from podcast_creator import create_thumbnail, create_video
+
+# ── Auto-create output folders next to the app ──
+APP_DIR      = Path(__file__).parent
+THUMB_FOLDER = APP_DIR / "thumbnails"
+VIDEO_FOLDER = APP_DIR / "videos"
+THUMB_FOLDER.mkdir(exist_ok=True)
+VIDEO_FOLDER.mkdir(exist_ok=True)
 
 # ── Page config ──
 st.set_page_config(
@@ -194,12 +202,22 @@ if create_btn:
 
                 progress_bar.progress(100, text="Done!")
 
+                # ── Auto-save to folders ──
+                safe_name = unit_name.replace(" ", "_").replace("/", "-")[:60]
+                saved_thumb = THUMB_FOLDER / f"{safe_name}_thumbnail.jpg"
+                saved_video = VIDEO_FOLDER / f"{safe_name}.mp4"
+                shutil.copy2(thumb_path, saved_thumb)
+                shutil.copy2(video_path, saved_video)
+
                 # ── Show results ──
                 st.markdown("""
                 <div class="success-box">
                     <div class="success-title">Your video is ready!</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                st.success(f"📁 Thumbnail saved to: `thumbnails/{saved_thumb.name}`")
+                st.success(f"📁 Video saved to: `videos/{saved_video.name}`")
 
                 st.image(str(thumb_path), caption="Generated Thumbnail", use_container_width=True)
 
