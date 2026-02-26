@@ -730,8 +730,8 @@ def create_thumbnail(
     # ── Course name: extrabold, PREFER 1 LINE ──
     # Try 1 line first, shrink font down to min_1line size.
     # Only allow 2 lines if text can't fit on 1 line at reasonable size.
-    max_course_size = int(28 * scale)
-    min_1line_size  = int(12 * scale)          # below this → allow 2 lines
+    max_course_size = int(42 * scale)
+    min_1line_size  = int(18 * scale)          # below this → allow 2 lines
 
     # Attempt 1: fit on 1 line
     eb_size = max_course_size
@@ -755,7 +755,7 @@ def create_thumbnail(
                 break
 
     # ── Unit name: medium weight, ~55% of course size ──
-    med_size = max(14, int(eb_size * 0.55))
+    med_size = max(20, int(eb_size * 0.68))
     med_font = load_font("medium", med_size)
     unl, unw, unh = wrap_to_fit(unit_name, med_font, int(safe_width * 0.85))
 
