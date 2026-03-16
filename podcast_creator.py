@@ -11,6 +11,7 @@ The template image is embedded as base64 — no external file needed.
 
 import argparse
 import base64
+import functools
 import io
 import os
 import subprocess
@@ -586,6 +587,7 @@ _FALLBACKS = {
 }
 
 
+@functools.lru_cache(maxsize=16)
 def _find_font(weight: str):
     stems = _WEIGHT_STEMS.get(weight, [])
     for d in _FONT_DIRS:
@@ -605,6 +607,7 @@ def _find_font(weight: str):
     return None
 
 
+@functools.lru_cache(maxsize=128)
 def load_font(weight: str, size: int) -> ImageFont.FreeTypeFont:
     p = _find_font(weight)
     if p:
@@ -629,37 +632,46 @@ def find_light_circle_zone(img: Image.Image):
     """
     Return (safe_top, safe_bottom, center_x, safe_width).
     Scans for rows where G > 120 (light teal), wide + centred.
+    Fully vectorised with NumPy.
     """
     arr  = np.array(img)
-    G    = arr[:, :, 1].astype(int)
+    G    = arr[:, :, 1].astype(np.int16)
     W, H = img.size
 
-    light     = G > 120
-    rows_info = []
+    light = G > 120                          # bool H×W
 
-    for row in range(H):
-        lc = np.where(light[row, :])[0]
-        if len(lc) < W * 0.3:
-            rows_info.append(None)
-            continue
-        cx  = float(lc.mean())
-        wid = int(lc.max() - lc.min())
-        rows_info.append((cx, wid, int(lc.min()), int(lc.max())))
+    # count of light pixels per row
+    row_counts = light.sum(axis=1)           # (H,)
+    min_count  = W * 0.3
 
-    img_cx    = W / 2
-    safe_rows = []
-    for row, info in enumerate(rows_info):
-        if info and abs(info[0] - img_cx) < W * 0.15 and info[1] > W * 0.55:
-            safe_rows.append(row)
+    # For each row: left-most and right-most light pixel
+    col_idx = np.arange(W)
+    # Use masked operations to find min/max light columns per row
+    masked = np.where(light, col_idx[np.newaxis, :], W)
+    left_most = masked.min(axis=1)           # (H,)
+    masked2 = np.where(light, col_idx[np.newaxis, :], -1)
+    right_most = masked2.max(axis=1)         # (H,)
 
-    if not safe_rows:
+    # Center-x and width for qualifying rows
+    cx_arr  = (left_most + right_most) / 2.0
+    wid_arr = right_most - left_most
+
+    img_cx = W / 2.0
+    qualify = (
+        (row_counts >= min_count) &
+        (np.abs(cx_arr - img_cx) < W * 0.15) &
+        (wid_arr > W * 0.55)
+    )
+
+    safe_rows = np.where(qualify)[0]
+
+    if len(safe_rows) == 0:
         return int(H * 0.06), int(H * 0.46), W // 2, int(W * 0.72)
 
-    safe_top    = safe_rows[0]  + int(H * 0.04)
-    safe_bottom = safe_rows[-1] - int(H * 0.02)
+    safe_top    = int(safe_rows[0])  + int(H * 0.04)
+    safe_bottom = int(safe_rows[-1]) - int(H * 0.02)
 
-    widths     = [rows_info[r][1] for r in safe_rows if rows_info[r]]
-    safe_width = int(min(widths) * 0.82)
+    safe_width = int(int(wid_arr[safe_rows].min()) * 0.82)
 
     return safe_top, safe_bottom, W // 2, safe_width
 
@@ -671,16 +683,17 @@ def find_light_circle_zone(img: Image.Image):
 def wrap_to_fit(text: str, font, max_px: int, max_lines: int = 0):
     """Word-wrap text so no line exceeds max_px.
        If max_lines > 0, never exceed that many lines (shrink font if needed).
+       Uses binary search instead of linear scan for speed.
     """
     text = text.strip()
     if not text:
         bb = font.getbbox(" ")
         return [""], [0], [bb[3] - bb[1]]
 
-    for chars in range(len(text), 3, -1):
+    def _try_wrap(chars):
         lines = textwrap.wrap(text, width=chars) or [text]
         if max_lines > 0 and len(lines) > max_lines:
-            continue
+            return None
         ws, hs = [], []
         for line in lines:
             bb = font.getbbox(line)
@@ -688,6 +701,29 @@ def wrap_to_fit(text: str, font, max_px: int, max_lines: int = 0):
             hs.append(bb[3] - bb[1])
         if max(ws) <= max_px:
             return lines, ws, hs
+        return None
+
+    # Binary search: find smallest chars value that fits
+    lo, hi = 4, len(text)
+    best = None
+
+    # First check if full text fits on one line
+    result = _try_wrap(hi)
+    if result:
+        return result
+
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        result = _try_wrap(mid)
+        if result:
+            best = result
+            # Try fewer chars (more lines) — but we want widest fit, so go higher
+            lo = mid + 1
+        else:
+            hi = mid - 1
+
+    if best:
+        return best
 
     bb = font.getbbox(text)
     return [text], [bb[2] - bb[0]], [bb[3] - bb[1]]
@@ -733,26 +769,41 @@ def create_thumbnail(
     max_course_size = int(42 * scale)
     min_1line_size  = int(18 * scale)          # below this → allow 2 lines
 
+    # Binary search helper: find largest sz in [lo, hi] that fits
+    def _best_font_size(lo, hi, max_lines, max_h_frac):
+        best_sz, best_cl, best_cw, best_ch, best_font = None, None, None, None, None
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            f = load_font("extrabold", mid)
+            lines, ws, hs = wrap_to_fit(course_name, f, safe_width, max_lines=max_lines)
+            fits = (
+                len(lines) <= max_lines
+                and max(ws) <= safe_width
+                and block_height(hs, line_gap=8) <= zone_h * max_h_frac
+            )
+            if fits:
+                best_sz, best_cl, best_cw, best_ch, best_font = mid, lines, ws, hs, f
+                lo = mid + 1        # try larger
+            else:
+                hi = mid - 1        # too big
+        return best_sz, best_cl, best_cw, best_ch, best_font
+
     # Attempt 1: fit on 1 line
-    eb_size = max_course_size
-    cl, cw, ch = None, None, None
-    found_1line = False
-    for sz in range(max_course_size, min_1line_size - 1, -1):
-        eb_font = load_font("extrabold", sz)
-        cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width, max_lines=1)
-        if len(cl) == 1 and max(cw) <= safe_width and block_height(ch, line_gap=8) <= zone_h * 0.45:
-            eb_size = sz
-            found_1line = True
-            break
+    eb_size, cl, cw, ch, eb_font = _best_font_size(
+        min_1line_size, max_course_size, max_lines=1, max_h_frac=0.45
+    )
+    found_1line = eb_size is not None
 
     if not found_1line:
         # Attempt 2: couldn't fit on 1 line → allow 2 lines
-        for sz in range(max_course_size, 10, -1):
-            eb_font = load_font("extrabold", sz)
+        eb_size, cl, cw, ch, eb_font = _best_font_size(
+            10, max_course_size, max_lines=2, max_h_frac=0.45
+        )
+        if eb_size is None:
+            # fallback
+            eb_size = 10
+            eb_font = load_font("extrabold", eb_size)
             cl, cw, ch = wrap_to_fit(course_name, eb_font, safe_width, max_lines=2)
-            if len(cl) <= 2 and max(cw) <= safe_width and block_height(ch, line_gap=8) <= zone_h * 0.45:
-                eb_size = sz
-                break
 
     # ── Unit name: medium weight, ~55% of course size ──
     med_size = max(20, int(eb_size * 0.68))
@@ -818,9 +869,10 @@ def create_video(
         "-i", audio_path,
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-preset", "ultrafast",
-        "-tune", "zerolatency", "-crf", "28", "-r", "30",
+        "-tune", "stillimage", "-crf", "28", "-r", "1",
         *audio_codec,
         "-pix_fmt", "yuv420p", "-shortest",
+        "-threads", "0",
         "-movflags", "+faststart",
         "-progress", "pipe:1", "-nostats",
         output_path,
